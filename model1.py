@@ -10,4 +10,4 @@ pipe = pipe.to(device)
 prompt = "Showing the subtrochanteric fracture in the porotic bone."
 image = pipe(prompt).images[0]  
     
-image.save("porotic_bone_fracture.png")
+image.save("porotic_bone_fracture_model1.png")
