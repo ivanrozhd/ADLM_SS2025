@@ -2,14 +2,9 @@
 
 import os
 from safetensors.torch import load_file
-from diffusers.pipelines import StableDiffusionPipeline
+from diffusers.pipelines import DiffusionPipeline
 
-pipe = StableDiffusionPipeline.from_pretrained(sd_folder_path, revision="fp16")
-exp_path = os.path.join('unet', 'diffusion_pytorch_model.safetensors')
-state_dict = load_file(exp_path)
-
-# Load the adapted U-Net
-pipe.unet.load_state_dict(state_dict, strict=False)
+pipe = DiffusionPipeline.from_pretrained("raman07/SD-finetuned-MIMIC-full")
 pipe.to('cuda:0')
 
 # Generate images with text prompts
