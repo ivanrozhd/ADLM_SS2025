@@ -4,7 +4,7 @@ import pandas as pd
 modality = [['mri', 't1-weighted'],['mri', 't2-weighted'], 'mri', 'x-ray', 'computed tomography']
 
 # for xray i removed lungs
-domain = ['chest','lung','lungs' 'brain','abdominal', 'coronal', 'artery', 'lobe', 'tumor','liver' ]
+domain = ['chest','lung', 'brain','abdominal', 'artery', 'lobe','liver', 'abdomen']
 
 
 
@@ -114,10 +114,10 @@ if __name__ == "__main__":
 
 ###############################CREATE MODALITY AND DOMAIN TABLES#################################
     df_modalities = structure_data_by_modality_or_domain(reader_object, modality)
-    #df_modalities.to_csv('modality/structured_data_by_modality.csv', index=False)
+    df_modalities.to_csv('modality/structured_data_by_modality.csv', index=False)
 
     df_domains = structure_data_by_modality_or_domain(reader_object, domain)
-    #df_domains.to_csv('domain/structured_data_by_domain.csv', index=False)
+    df_domains.to_csv('domain/structured_data_by_domain.csv', index=False)
 
 
 
