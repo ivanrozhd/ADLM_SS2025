@@ -19,8 +19,11 @@ tokenizer = ldm_stable.tokenizer
 g_cpu = torch.Generator().manual_seed(8888)
 prompts = ["A painting of a squirrel eating a burger"]
 controller = cross_attention_editting.AttentionStore()
-image, x_t = cross_attention_editting.run_and_display(prompts, controller, ldm_stable, NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=None, run_baseline=False, generator=g_cpu)
-cross_attention_editting.show_cross_attention(tokenizer, controller, res=16, from_where=("up", "down"))
+#lb = LocalBlend(prompts, ("squirrel", "lion"))
+image, x_t = cross_attention_editting.run_and_display(prompts, controller, ldm_stable, 
+                                                NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=None, run_baseline=False, 
+                                                generator=g_cpu) #cross_replace_steps={"default_": 1., "lion": .4}, self_replace_steps=0.4, local_blend=lb
+cross_attention_editting.show_cross_attention(tokenizer, prompts, controller, res=16, from_where=("up", "down"))
 
 
 ################## TEST AttentionReplace ######################

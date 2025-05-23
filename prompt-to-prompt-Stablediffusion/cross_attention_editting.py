@@ -285,7 +285,7 @@ def show_cross_attention(tokenizer, prompts, attention_store: AttentionStore, re
         image = ptp_utils.text_under_image(image, decoder(int(tokens[i])))
         images.append(image)
     #ptp_utils.view_images(np.stack(images, axis=0))
-    save_images_to_file(np.stack(images, axis=0), file_name_prefix="cross_attention_")
+    save_images_to_file(np.stack(images, axis=0), file_name_postfix="cross_attention")
 
 # Performs SVD on self-attention maps to reveal dominant components of spatial relationships -> useful for advanced inspection
 def show_self_attention_comp(prompts, attention_store: AttentionStore, res: int, from_where: List[str],
@@ -302,7 +302,7 @@ def show_self_attention_comp(prompts, attention_store: AttentionStore, res: int,
         image = np.array(image)
         images.append(image)
     #ptp_utils.view_images(np.concatenate(images, axis=1))
-    save_images_to_file(np.concatenate(images, axis=1), file_name_prefix="self_attention_")
+    save_images_to_file(np.concatenate(images, axis=1), file_name_postfix="self_attention")
 
 # Runs Stable Diffusion with or without Prompt-to-Prompt control, displays output, and returns image + latent.
 def run_and_display(prompts, controller, ldm_stable, NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=None, run_baseline=False, generator=None):
@@ -315,15 +315,15 @@ def run_and_display(prompts, controller, ldm_stable, NUM_DIFFUSION_STEPS, GUIDAN
     """
     if run_baseline:
         print("w.o. prompt-to-prompt")
-        images, latent = run_and_display(prompts, EmptyControl(), latent=latent, run_baseline=False, generator=generator)
+        images, latent = run_and_display(prompts, EmptyControl(), ldm_stable, NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=latent, run_baseline=False, generator=generator)
         print("with prompt-to-prompt")
     images, x_t = ptp_utils.text2image_ldm_stable(ldm_stable, prompts, controller, latent=latent, num_inference_steps=NUM_DIFFUSION_STEPS, guidance_scale=GUIDANCE_SCALE, generator=generator)
     #ptp_utils.view_images(images)
-    save_images_to_file(images, file_name_prefix="run_")
+    save_images_to_file(images, file_name_postfix="run")
     return images, x_t
 
 
-def save_images_to_file(images, file_name_prefix, num_rows=1, offset_ratio=0.02, output_dir="generated_images"):
+def save_images_to_file(images, file_name_postfix, num_rows=1, offset_ratio=0.02, output_dir="ngocs_generated_images"):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -355,7 +355,7 @@ def save_images_to_file(images, file_name_prefix, num_rows=1, offset_ratio=0.02,
     # Convert to PIL and save with timestamp
     pil_img = Image.fromarray(image_)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{file_name_prefix}_{timestamp}.png"
+    filename = f"{timestamp}_{file_name_postfix}.png"
     file_path = os.path.join(output_dir, filename)
     pil_img.save(file_path)
 
