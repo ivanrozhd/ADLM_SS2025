@@ -28,4 +28,5 @@ conda activate ngoc_adlm_env_py310
 # conda env create -f environment.yml
 
 # Run the program
-python /vol/miltank/users/doanb/ADLM_SS2025/prompt-to-prompt-Stablediffusion/main_Prompt2MedImage.py
+python /vol/miltank/users/doanb/ADLM_SS2025/prompt-to-prompt-Stablediffusion/main.py
+# python /vol/miltank/users/doanb/ADLM_SS2025/prompt-to-prompt-Stablediffusion/example.py

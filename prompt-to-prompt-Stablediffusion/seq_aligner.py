@@ -185,7 +185,6 @@ def get_replacement_mapper_(x: str, y: str, tokenizer, max_len=77):
     return torch.from_numpy(mapper).float()
 
 
-
 def get_replacement_mapper(prompts, tokenizer, max_len=77):
     x_seq = prompts[0]
     mappers = []

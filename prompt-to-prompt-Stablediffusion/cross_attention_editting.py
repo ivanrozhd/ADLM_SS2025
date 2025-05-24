@@ -1,5 +1,3 @@
-#!pip install -r ../requirements.txt
-
 from typing import Optional, Union, Tuple, List, Callable, Dict
 import torch
 import torch.nn.functional as nnf
@@ -12,7 +10,7 @@ import os
 import ptp_utils
 import seq_aligner
 
-
+# emphasize selected words epresenting thing that should be alter
 class LocalBlend:
     def __call__(self, x_t, attention_store):
         """
@@ -67,7 +65,6 @@ class AttentionControl(abc.ABC):
 
     @property
     def num_uncond_att_layers(self): # handles low-resource mode by skipping attention edits if needed.
-        #return self.num_att_layers if self.LOW_RESOURCE else 0
         return 0
 
     @abc.abstractmethod
@@ -76,9 +73,6 @@ class AttentionControl(abc.ABC):
 
     def __call__(self, attn, is_cross: bool, place_in_unet: str):
         if self.cur_att_layer >= self.num_uncond_att_layers:
-            #if self.LOW_RESOURCE:
-            #    attn = self.forward(attn, is_cross, place_in_unet)
-            #else:
             h = attn.shape[0]
             attn[h // 2:] = self.forward(attn[h // 2:], is_cross, place_in_unet)
         self.cur_att_layer += 1
@@ -110,15 +104,15 @@ class AttentionStore(AttentionControl):
         return {"down_cross": [], "mid_cross": [], "up_cross": [],
                 "down_self": [],  "mid_self": [],  "up_self": []}
 
+    # saves attention maps by layer type (e.g., up_cross, down_self, etc.)
     def forward(self, attn, is_cross: bool, place_in_unet: str):
-        # saves attention maps by layer type (e.g., up_cross, down_self, etc.)
         key = f"{place_in_unet}_{'cross' if is_cross else 'self'}"
         if attn.shape[1] <= 32 ** 2:  # avoid memory overhead
             self.step_store[key].append(attn)
         return attn
-
+    
+    # aggregates maps across timesteps for averaging
     def between_steps(self):
-        # aggregates maps across timesteps for averaging
         if len(self.attention_store) == 0:
             self.attention_store = self.step_store
         else:
@@ -127,8 +121,8 @@ class AttentionStore(AttentionControl):
                     self.attention_store[key][i] += self.step_store[key][i]
         self.step_store = self.get_empty_store()
 
+    # returns averaged maps over diffusion steps
     def get_average_attention(self):
-        # returns averaged maps over diffusion steps
         average_attention = {key: [item / self.cur_step for item in self.attention_store[key]] for key in self.attention_store}
         return average_attention
 
@@ -179,9 +173,9 @@ class AttentionControlEdit(AttentionStore, abc.ABC):
     def __init__(self, prompts, num_steps: int,
                 cross_replace_steps: Union[float, Tuple[float, float], Dict[str, Tuple[float, float]]], # the fraction of steps to edit the cross attention maps. Can also be set to a dictionary [str:float] which specifies fractions for different words in the prompt
                 self_replace_steps: Union[float, Tuple[float, float]], # the fraction of steps to replace the self attention maps
-                tokenizer,device, # added by Ngoc
-                local_blend: Optional[LocalBlend]
-                ): # applies the LocalBlend mask at each step (optional)
+                tokenizer,device, 
+                local_blend: Optional[LocalBlend] # applies the LocalBlend mask at each step (optional)
+                ): 
         super(AttentionControlEdit, self).__init__()
         self.batch_size = len(prompts)
         # A temporal alpha tensor controlling the blending between base and modified attention
@@ -191,7 +185,7 @@ class AttentionControlEdit(AttentionStore, abc.ABC):
         self.num_self_replace = int(num_steps * self_replace_steps[0]), int(num_steps * self_replace_steps[1])
         self.local_blend = local_blend
 
-# Word Swap in the paper
+# Word Swap 
 class AttentionReplace(AttentionControlEdit):
 
     def replace_cross_attention(self, attn_base, att_replace):
@@ -199,12 +193,12 @@ class AttentionReplace(AttentionControlEdit):
         return torch.einsum('hpw,bwn->bhpn', attn_base, self.mapper)
 
     def __init__(self, prompts, num_steps: int, cross_replace_steps: float, self_replace_steps: float, 
-                tokenizer,device, # added by Ngoc
+                tokenizer,device, 
                 local_blend: Optional[LocalBlend] = None):
         super(AttentionReplace, self).__init__(prompts, num_steps, cross_replace_steps, self_replace_steps, tokenizer, device, local_blend)
         self.mapper = seq_aligner.get_replacement_mapper(prompts, tokenizer).to(device)
 
-# Adding new Phrase in the paper
+# Adding new Phrase
 class AttentionRefine(AttentionControlEdit):
 
     def replace_cross_attention(self, attn_base, att_replace):
@@ -251,15 +245,14 @@ def get_equalizer(tokenizer, text: str, word_select: Union[int, Tuple[int, ...]]
 # Aggregates attention maps (either cross- or self-attention) over selected layers and steps
 def aggregate_attention(attention_store: AttentionStore, res: int, from_where: List[str], is_cross: bool, select: int, prompts):
     """
-    Input:  attention_store: Instance of AttentionStore holding averaged attention maps.
+    Input:  attention_store: Instance of AttentionStore holding averaged (cross and self) attention maps of all prompts
             res: Resolution of attention (e.g., 16 for 16×16 spatial attention).
             from_where: Layers to include (["up", "down", "mid"]).
             is_cross: If True, get cross-attention (text-to-image); else self-attention (image-to-image).
-            select: Index of the prompt being visualized (supports batch prompts)
+            select: Index of the prompt being visualized 
     """
     out = []
     attention_maps = attention_store.get_average_attention()
-    #print("attention_maps:", attention_maps)
     num_pixels = res ** 2
     for location in from_where:
         for item in attention_maps[f"{location}_{'cross' if is_cross else 'self'}"]:
@@ -271,7 +264,16 @@ def aggregate_attention(attention_store: AttentionStore, res: int, from_where: L
     return out.cpu()
 
 # Displays the spatial attention map per token in a prompt (which parts of the image are associated with each single word).
-def show_cross_attention(tokenizer, prompts, attention_store: AttentionStore, res: int, from_where: List[str], select: int = 0):
+def show_cross_attention(tokenizer, prompts, displayNumber, attention_store: AttentionStore, res: int, from_where: List[str], select: int = 0):
+    """
+    Input:  tokenizer: Tokenizer used to encode prompts
+            prompts: List of text prompts
+            displayNumber: Number to identify the output image
+            attention_store: Instance of AttentionStore holding averaged (cross and self) attention maps of all prompts
+            res: Resolution of attention (e.g., 16 for 16×16 spatial attention).
+            from_where: Layers to include (["up", "down", "mid"]).
+            select: Index of the prompt being visualized
+    """
     tokens = tokenizer.encode(prompts[select])
     decoder = tokenizer.decode
     attention_maps = aggregate_attention(attention_store, res, from_where, True, select, prompts)
@@ -285,10 +287,10 @@ def show_cross_attention(tokenizer, prompts, attention_store: AttentionStore, re
         image = ptp_utils.text_under_image(image, decoder(int(tokens[i])))
         images.append(image)
     #ptp_utils.view_images(np.stack(images, axis=0))
-    save_images_to_file(np.stack(images, axis=0), file_name_postfix="cross_attention")
+    save_images_to_file(np.stack(images, axis=0), displayNumber=displayNumber, file_name_postfix="cross_attention")
 
 # Performs SVD on self-attention maps to reveal dominant components of spatial relationships -> useful for advanced inspection
-def show_self_attention_comp(prompts, attention_store: AttentionStore, res: int, from_where: List[str],
+def show_self_attention_comp(prompts, displayNumber, attention_store: AttentionStore, res: int, from_where: List[str],
                         max_com=10, select: int = 0):
     attention_maps = aggregate_attention(attention_store, res, from_where, False, select, prompts).numpy().reshape((res ** 2, res ** 2))
     u, s, vh = np.linalg.svd(attention_maps - np.mean(attention_maps, axis=1, keepdims=True))
@@ -302,28 +304,20 @@ def show_self_attention_comp(prompts, attention_store: AttentionStore, res: int,
         image = np.array(image)
         images.append(image)
     #ptp_utils.view_images(np.concatenate(images, axis=1))
-    save_images_to_file(np.concatenate(images, axis=1), file_name_postfix="self_attention")
+    save_images_to_file(np.concatenate(images, axis=1), displayNumber=displayNumber, file_name_postfix="self_attention")
 
 # Runs Stable Diffusion with or without Prompt-to-Prompt control, displays output, and returns image + latent.
-def run_and_display(prompts, controller, ldm_stable, NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=None, run_baseline=False, generator=None):
-    """
-    Input:  prompts: Text prompts (list of strings).
-            controller: An instance of AttentionControl
-            latent: Optional initial latent image.
-            run_baseline: If True, runs default Stable Diffusion (without PtP) first.
-            generator: Random seed control
-    """
+def run_and_display(prompts, displayNumber, controller, ldm_stable, NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=None, run_baseline=False, generator=None):
     if run_baseline:
         print("w.o. prompt-to-prompt")
-        images, latent = run_and_display(prompts, EmptyControl(), ldm_stable, NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=latent, run_baseline=False, generator=generator)
+        images, latent = run_and_display(prompts, displayNumber, EmptyControl(), ldm_stable, NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=latent, run_baseline=False, generator=generator)
         print("with prompt-to-prompt")
     images, x_t = ptp_utils.text2image_ldm_stable(ldm_stable, prompts, controller, latent=latent, num_inference_steps=NUM_DIFFUSION_STEPS, guidance_scale=GUIDANCE_SCALE, generator=generator)
     #ptp_utils.view_images(images)
-    save_images_to_file(images, file_name_postfix="run")
+    save_images_to_file(images, displayNumber=displayNumber, file_name_postfix="run")
     return images, x_t
 
-
-def save_images_to_file(images, file_name_postfix, num_rows=1, offset_ratio=0.02, output_dir="ngocs_generated_images"):
+def save_images_to_file(images, displayNumber, file_name_postfix, num_rows=1, offset_ratio=0.02, output_dir="ngocs_generated_images"):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -355,7 +349,7 @@ def save_images_to_file(images, file_name_postfix, num_rows=1, offset_ratio=0.02
     # Convert to PIL and save with timestamp
     pil_img = Image.fromarray(image_)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"{timestamp}_{file_name_postfix}.png"
+    filename = f"{displayNumber}_{timestamp}_{file_name_postfix}.png"
     file_path = os.path.join(output_dir, filename)
     pil_img.save(file_path)
 
