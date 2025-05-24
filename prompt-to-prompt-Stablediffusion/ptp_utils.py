@@ -61,14 +61,10 @@ def view_images(images, num_rows=1, offset_ratio=0.02):
     display(pil_img)
 
 
-def diffusion_step(model, controller, latents, context, t, guidance_scale, low_resource=False):
-    if low_resource:
-        noise_pred_uncond = model.unet(latents, t, encoder_hidden_states=context[0])["sample"]
-        noise_prediction_text = model.unet(latents, t, encoder_hidden_states=context[1])["sample"]
-    else:
-        latents_input = torch.cat([latents] * 2)
-        noise_pred = model.unet(latents_input, t, encoder_hidden_states=context)["sample"]
-        noise_pred_uncond, noise_prediction_text = noise_pred.chunk(2)
+def diffusion_step(model, controller, latents, context, t, guidance_scale):
+    latents_input = torch.cat([latents] * 2)
+    noise_pred = model.unet(latents_input, t, encoder_hidden_states=context)["sample"]
+    noise_pred_uncond, noise_prediction_text = noise_pred.chunk(2)
     noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
     latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
     latents = controller.step_callback(latents) ### edit2
@@ -93,37 +89,6 @@ def init_latent(latent, model, height, width, generator, batch_size):
     latents = latent.expand(batch_size,  model.unet.in_channels, height // 8, width // 8).to(model.device)
     return latent, latents
 
-
-@torch.no_grad()
-def text2image_ldm(
-    model,
-    prompt:  List[str],
-    controller,
-    num_inference_steps: int = 50,
-    guidance_scale: Optional[float] = 7.,
-    generator: Optional[torch.Generator] = None,
-    latent: Optional[torch.FloatTensor] = None,
-):
-    register_attention_control(model, controller)
-    height = width = 256
-    batch_size = len(prompt)
-    
-    uncond_input = model.tokenizer([""] * batch_size, padding="max_length", max_length=77, return_tensors="pt")
-    uncond_embeddings = model.bert(uncond_input.input_ids.to(model.device))[0]
-    
-    text_input = model.tokenizer(prompt, padding="max_length", max_length=77, return_tensors="pt")
-    text_embeddings = model.bert(text_input.input_ids.to(model.device))[0]
-    latent, latents = init_latent(latent, model, height, width, generator, batch_size)
-    context = torch.cat([uncond_embeddings, text_embeddings])
-    
-    model.scheduler.set_timesteps(num_inference_steps)
-    for t in tqdm(model.scheduler.timesteps):
-        latents = diffusion_step(model, controller, latents, context, t, guidance_scale)
-    
-    image = latent2image(model.vqvae, latents)
-   
-    return image, latent
-
 # This is the entry point: The custom inference loop for Stable Diffusion
 @torch.no_grad()
 def text2image_ldm_stable(
@@ -134,7 +99,6 @@ def text2image_ldm_stable(
     guidance_scale: float = 7.5,
     generator: Optional[torch.Generator] = None,
     latent: Optional[torch.FloatTensor] = None,
-    low_resource: bool = False,
 ):
     register_attention_control(model, controller) ### edit1: Important function 
     height = width = 512
@@ -156,20 +120,17 @@ def text2image_ldm_stable(
     uncond_embeddings = model.text_encoder(uncond_input.input_ids.to(model.device))[0]
     
     context = [uncond_embeddings, text_embeddings]
-    if not low_resource:
-        context = torch.cat(context)
+    context = torch.cat(context)
     
     # Initialize latents
     latent, latents = init_latent(latent, model, height, width, generator, batch_size)
     
-    #extra_set_kwargs = {"offset": 1}
-    model.scheduler.set_timesteps(num_inference_steps)#, **extra_set_kwargs)
-    #print("OLD EXtra set kwargs")
+    model.scheduler.set_timesteps(num_inference_steps)
      
     # Manipulate the attention during each forward pass through the UNet 
     for t in tqdm(model.scheduler.timesteps):
       # call a modified diffusion_step() that includes attention injection
-      latents = diffusion_step(model, controller, latents, context, t, guidance_scale, low_resource)
+      latents = diffusion_step(model, controller, latents, context, t, guidance_scale)
     
     # Decode the final latents to image
     image = latent2image(model.vae, latents)
@@ -184,46 +145,7 @@ def register_attention_control(model, controller):
     Track how many layers were hooked, storing that in controller.num_att_layers
     """
 
-    """ for laten diffusion model old version 0.10.1 #Ngoc changed
-    def ca_forward(self, place_in_unet):
-        to_out = self.to_out
-        if type(to_out) is torch.nn.modules.container.ModuleList:
-            to_out = self.to_out[0]
-        else:
-            to_out = self.to_out
-
-        def forward(x, context=None, mask=None):
-            batch_size, sequence_length, dim = x.shape
-            h = self.heads
-            # Queries (q) come from input x
-            q = self.to_q(x) 
-            # Keys (k) and values (v) come from context if present (cross-attention), else x (self-attention)
-            is_cross = context is not None
-            context = context if is_cross else x
-            k = self.to_k(context)
-            v = self.to_v(context)
-
-            q = self.reshape_heads_to_batch_dim(q)
-            k = self.reshape_heads_to_batch_dim(k)
-            v = self.reshape_heads_to_batch_dim(v)
-
-            sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
-
-            if mask is not None:
-                mask = mask.reshape(batch_size, -1)
-                max_neg_value = -torch.finfo(sim.dtype).max
-                mask = mask[:, None, :].repeat(h, 1, 1)
-                sim.masked_fill_(~mask, max_neg_value)
-
-            # attention weights, what we cannot get enough of
-            attn = sim.softmax(dim=-1)
-            attn = controller(attn, is_cross, place_in_unet) ### key injection: where the controller has a chance to modify the attention
-            out = torch.einsum("b i j, b j d -> b i d", attn, v)
-            out = self.reshape_batch_dim_to_heads(out)
-            return to_out(out)
-        return forward"""
-    
-    """ for new version of diffusers"""
+    """ different from original implementation: rewrite for new version of diffusers"""
     def ca_forward(self, place_in_unet):
         to_out = self.to_out
         if type(to_out) is torch.nn.modules.container.ModuleList:
@@ -365,10 +287,13 @@ def get_time_words_attention_alpha(prompts, num_steps,
         cross_replace_steps = {"default_": cross_replace_steps}
     if "default_" not in cross_replace_steps:
         cross_replace_steps["default_"] = (0., 1.)
-    alpha_time_words = torch.zeros(num_steps + 1, len(prompts) - 1, max_num_words)
+
+    # The first prompt is the reference (original). The remaining prompts are compared against the reference. 
+    alpha_time_words = torch.zeros(num_steps + 1, len(prompts) - 1, max_num_words) 
     for i in range(len(prompts) - 1):
-        alpha_time_words = update_alpha_time_word(alpha_time_words, cross_replace_steps["default_"],
-                                                  i)
+        alpha_time_words = update_alpha_time_word(alpha_time_words, cross_replace_steps["default_"],i)
+
+    # For each prompt, find the word indices and update the alpha_time_words tensor
     for key, item in cross_replace_steps.items():
         if key != "default_":
              inds = [get_word_inds(prompts[i], key, tokenizer) for i in range(1, len(prompts))]
