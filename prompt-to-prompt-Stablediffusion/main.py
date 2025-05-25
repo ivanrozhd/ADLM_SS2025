@@ -10,4 +10,3 @@ tokenizer = ldm_stable.tokenizer
 MAX_NUM_WORDS = 77 # max number of tokens for the text input
 NUM_DIFFUSION_STEPS = 50
 GUIDANCE_SCALE = 7.5
-
