@@ -3,10 +3,10 @@ import torch
 import torch.nn.functional as nnf
 import numpy as np
 import abc
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from datetime import datetime
 import os
-
+import textwrap
 import ptp_utils
 import seq_aligner
 
@@ -287,7 +287,7 @@ def show_cross_attention(tokenizer, prompts, displayNumber, attention_store: Att
         image = ptp_utils.text_under_image(image, decoder(int(tokens[i])))
         images.append(image)
     #ptp_utils.view_images(np.stack(images, axis=0))
-    save_images_to_file(np.stack(images, axis=0), displayNumber=displayNumber, file_name_postfix="cross_attention")
+    save_attention_images_to_file(np.stack(images, axis=0), displayNumber=displayNumber, file_name_postfix="cross_attention")
 
 # Performs SVD on self-attention maps to reveal dominant components of spatial relationships -> useful for advanced inspection
 def show_self_attention_comp(prompts, displayNumber, attention_store: AttentionStore, res: int, from_where: List[str],
@@ -304,7 +304,7 @@ def show_self_attention_comp(prompts, displayNumber, attention_store: AttentionS
         image = np.array(image)
         images.append(image)
     #ptp_utils.view_images(np.concatenate(images, axis=1))
-    save_images_to_file(np.concatenate(images, axis=1), displayNumber=displayNumber, file_name_postfix="self_attention")
+    save_attention_images_to_file(np.concatenate(images, axis=1), displayNumber=displayNumber, file_name_postfix="self_attention")
 
 # Runs Stable Diffusion with or without Prompt-to-Prompt control, displays output, and returns image + latent.
 def run_and_display(prompts, displayNumber, controller, ldm_stable, NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=None, run_baseline=False, generator=None):
@@ -314,10 +314,11 @@ def run_and_display(prompts, displayNumber, controller, ldm_stable, NUM_DIFFUSIO
         print("with prompt-to-prompt")
     images, x_t = ptp_utils.text2image_ldm_stable(ldm_stable, prompts, controller, latent=latent, num_inference_steps=NUM_DIFFUSION_STEPS, guidance_scale=GUIDANCE_SCALE, generator=generator)
     #ptp_utils.view_images(images)
-    save_images_to_file(images, displayNumber=displayNumber, file_name_postfix="run")
+    save_images_to_file(prompts, images, displayNumber=displayNumber, file_name_postfix="run")
     return images, x_t
 
-def save_images_to_file(images, displayNumber, file_name_postfix, num_rows=1, offset_ratio=0.02, output_dir="ngocs_generated_images"):
+
+def save_attention_images_to_file(images, displayNumber, file_name_postfix, num_rows=1, offset_ratio=0.02, output_dir="ngocs_generated_images"):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -353,4 +354,69 @@ def save_images_to_file(images, displayNumber, file_name_postfix, num_rows=1, of
     file_path = os.path.join(output_dir, filename)
     pil_img.save(file_path)
 
+    print(f"[Saved]: {file_path}")
+
+
+def save_images_to_file(prompts, images, displayNumber, file_name_postfix, num_rows=1, offset_ratio=0.02, output_dir="ngocs_generated_images"):
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    if isinstance(images, list):
+        num_empty = len(images) % num_rows
+    elif images.ndim == 4:
+        num_empty = images.shape[0] % num_rows
+    else:
+        images = [images]
+        num_empty = 0
+
+    # Pad with white images and empty prompts if needed
+    empty_image = np.ones(images[0].shape, dtype=np.uint8) * 255
+    images = [img.astype(np.uint8) for img in images] + [empty_image] * num_empty
+    prompts += [""] * num_empty
+    num_items = len(images)
+
+    h, w, c = images[0].shape
+    offset = int(h * offset_ratio)
+    num_cols = num_items // num_rows
+
+    # Load a font
+    try:
+        font = ImageFont.truetype("arial.ttf", 16)
+    except IOError:
+        font = ImageFont.load_default()
+
+    text_height = 40  # space below each image for text
+    canvas_height = h + text_height
+
+    image_ = Image.new("RGB", (
+        w * num_cols + offset * (num_cols - 1),
+        canvas_height * num_rows + offset * (num_rows - 1)
+    ), (255, 255, 255))
+    draw = ImageDraw.Draw(image_)
+
+    for idx, (img_np, prompt) in enumerate(zip(images, prompts)):
+        img = Image.fromarray(img_np)
+        i = idx // num_cols
+        j = idx % num_cols
+        top_left_x = j * (w + offset)
+        top_left_y = i * (canvas_height + offset)
+
+        # Paste image
+        image_.paste(img, (top_left_x, top_left_y))
+
+        # Draw prompt text below the image (wrapped if necessary)
+        wrapped = textwrap.wrap(prompt, width=40)
+        for line_idx, line in enumerate(wrapped[:2]):  # Limit to 2 lines
+            draw.text(
+                (top_left_x, top_left_y + h + line_idx * 15),
+                line,
+                fill=(0, 0, 0),
+                font=font
+            )
+
+    # Save final image
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{displayNumber}_{timestamp}_{file_name_postfix}.png"
+    file_path = os.path.join(output_dir, filename)
+    image_.save(file_path)
     print(f"[Saved]: {file_path}")
