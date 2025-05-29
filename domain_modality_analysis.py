@@ -124,7 +124,7 @@ if __name__ == "__main__":
 #####################################INTERSECTION################################################
     # pass the column name for which you want to find the intersection
     intersect_column_with_all_rows(df_modalities, 'mri + t2-weighted', df_domains).dropna(how="all").to_csv(
-        'intersection_data/intersection_mri_t2weighted.csv', index=False)
+        'data_extraction/intersection_data/intersection_mri_t2weighted.csv', index=False)
 
 
 

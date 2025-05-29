@@ -20,7 +20,7 @@ fixed_seed = random.randint(0, 10000)
 generator = torch.Generator(device=device).manual_seed(fixed_seed)
 
 # Output directory
-output_dir = "safe_generated_images_ct_chest"
+output_dir = "images/safe_generated_images_ct_chest"
 os.makedirs(output_dir, exist_ok=True)
 
 # Generate and save images
