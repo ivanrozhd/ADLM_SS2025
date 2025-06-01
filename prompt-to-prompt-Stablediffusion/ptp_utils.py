@@ -245,7 +245,7 @@ def register_attention_control(model, controller):
     controller.num_att_layers = cross_att_count
 
 
-# Match text tokens (e.g. "lion") to attention channels
+# returns the indices (starting by 1) of the tokens that make up the word_place in the text. (e.g. "lion" -> [2,3] if the word is encoded as 2 tokens "li" and "on")
 def get_word_inds(text: str, word_place: int, tokenizer):
     split_text = text.split(" ")
     if type(word_place) is str:
