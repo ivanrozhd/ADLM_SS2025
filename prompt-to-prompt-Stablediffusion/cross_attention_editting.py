@@ -277,16 +277,45 @@ def show_cross_attention(tokenizer, prompts, displayNumber, attention_store: Att
     tokens = tokenizer.encode(prompts[select])
     decoder = tokenizer.decode
     attention_maps = aggregate_attention(attention_store, res, from_where, True, select, prompts)
+    # attention_maps has shape (H, W, num_tokens) — a stack of 2D attention heatmaps.
     images = []
+
     for i in range(len(tokens)):
-        image = attention_maps[:, :, i]
-        image = 255 * image / image.max()
-        image = image.unsqueeze(-1).expand(*image.shape, 3)
+        image = attention_maps[:, :, i] # Extract attention map for the i-th token. 
+        image = 255 * image / image.max() # Normalize to 0-255 range
+        image = image.unsqueeze(-1).expand(*image.shape, 3) # Convert the single-channel (grayscale) image to a 3-channel RGB image - required for saving as RGB
         image = image.numpy().astype(np.uint8)
-        image = np.array(Image.fromarray(image).resize((256, 256)))
-        image = ptp_utils.text_under_image(image, decoder(int(tokens[i])))
+        image = np.array(Image.fromarray(image).resize((256, 256))) # Resize to 256x256
+        image = ptp_utils.text_under_image(image, decoder(int(tokens[i]))) # Add the token text below the image as a label
         images.append(image)
+
     #ptp_utils.view_images(np.stack(images, axis=0))
+    save_attention_images_to_file(np.stack(images, axis=0), displayNumber=displayNumber, file_name_postfix="cross_attention")
+
+def show_cross_attention_per_word(tokenizer, prompts, displayNumber, attention_store: AttentionStore, res: int, from_where: List[str], select: int = 0):
+    """
+    Input:  tokenizer: Tokenizer used to encode prompts
+            prompts: List of text prompts
+            displayNumber: Number to identify the output image
+            attention_store: Instance of AttentionStore holding averaged (cross and self) attention maps of all prompts
+            res: Resolution of attention (e.g., 16 for 16×16 spatial attention).
+            from_where: Layers to include (["up", "down", "mid"]).
+            select: Index of the prompt being visualized
+    """
+    attention_maps = aggregate_attention(attention_store, res, from_where, True, select, prompts)
+    # attention_maps has shape (H, W, num_tokens) — a stack of 2D attention heatmaps.
+    images = []
+    
+    for word in prompts[select].split():
+        inds = ptp_utils.get_word_inds(prompts[select], word, tokenizer)
+        image = attention_maps[:, :, inds].sum(axis=-1)  # Sum the attention maps for all tokens of this word
+        image = 255 * image / image.max() # Normalize to 0-255 range
+        image = image.unsqueeze(-1).expand(*image.shape, 3)  # Convert to RGB
+        image = image.numpy().astype(np.uint8)
+        image = np.array(Image.fromarray(image).resize((256, 256)))  # Resize to 256x256
+        image = ptp_utils.text_under_image(image, word)  # Add the word text below the image as a label
+        images.append(image)
+
     save_attention_images_to_file(np.stack(images, axis=0), displayNumber=displayNumber, file_name_postfix="cross_attention")
 
 # Performs SVD on self-attention maps to reveal dominant components of spatial relationships -> useful for advanced inspection
