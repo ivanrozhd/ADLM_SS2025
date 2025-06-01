@@ -174,10 +174,9 @@ cython_debug/
 .pypirc
 
 # image folders 
-ngocs_generated_images
-ngocs_generated_images_squirl
 safe_generated_images_xray_chest
 safe_generated_images_ct_chest
 safe_generated_images_ct_abdominal
 generated_images
 *.csv
+*.xlxs
