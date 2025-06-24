@@ -105,6 +105,14 @@ def get_aligned_sequences(x, y, trace_back):
 
 
 def get_mapper(x: str, y: str, tokenizer, max_len=77):
+    """
+    Returns
+    -------
+    mapper: torch.Tensor
+        A tensor of shape (max_len,) where each token in the original prompt maps to a token in the other prompt.
+    alphas: torch.Tensor
+        A tensor of shape (max_len,) where each token in the original prompt is marked as changed/deleted (0) or not (1).
+    """
     x_seq = tokenizer.encode(x)
     y_seq = tokenizer.encode(y)
     score = ScoreParams(0, 1, -1)
@@ -119,8 +127,19 @@ def get_mapper(x: str, y: str, tokenizer, max_len=77):
 
 
 def get_refinement_mapper(prompts, tokenizer, max_len=77):
+    """
+    Returns
+    -------
+    mappers: torch.Tensor
+        A tensor of shape (N-1, max_len) where N is the number of prompts.
+        How each token in the original (1st) prompt maps to a token in the other prompts
+    alphas: torch.Tensor
+        A tensor of shape (N-1, max_len) where N is the number of prompts.
+        Which tokens changed (and hence which attention maps should be updated).
+    """
     x_seq = prompts[0]
     mappers, alphas = [], []
+    # Compare the 1st to each of the others
     for i in range(1, len(prompts)):
         mapper, alpha = get_mapper(x_seq, prompts[i], tokenizer, max_len)
         mappers.append(mapper)
