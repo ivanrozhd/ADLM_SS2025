@@ -346,8 +346,7 @@ def run_and_display(prompts, displayNumber, controller, ldm_stable, NUM_DIFFUSIO
     save_images_to_file(prompts, images, displayNumber=displayNumber, file_name_postfix="run")
     return images, x_t
 
-
-def save_attention_images_to_file(images, displayNumber, file_name_postfix, num_rows=1, offset_ratio=0.02, output_dir="ngocs_generated_images"):
+def save_attention_images_to_file(images, displayNumber, file_name_postfix, num_rows=1, offset_ratio=0.02, output_dir="generated_images"):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -385,8 +384,8 @@ def save_attention_images_to_file(images, displayNumber, file_name_postfix, num_
 
     print(f"[Saved]: {file_path}")
 
-
-def save_images_to_file(prompts, images, displayNumber, file_name_postfix, num_rows=1, offset_ratio=0.02, output_dir="ngocs_generated_images"):
+def save_images_to_file(prompts, images, displayNumber, file_name_postfix, num_rows=1, offset_ratio=0.02, output_dir="generated_images"):
+    
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -449,3 +448,23 @@ def save_images_to_file(prompts, images, displayNumber, file_name_postfix, num_r
     file_path = os.path.join(output_dir, filename)
     image_.save(file_path)
     print(f"[Saved]: {file_path}")
+
+
+def save_images_separately(prompts, images, output_dir="generated_images"):
+    save_dir = os.path.join(output_dir, "single_output")
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Ensure images is a list
+    if not isinstance(images, list):
+        if images.ndim == 4:
+            images = [img for img in images]
+        else:
+            images = [images]
+
+    # Save each image
+    for idx, img_np in enumerate(images):
+        img = Image.fromarray(img_np.astype(np.uint8))
+        file_path = os.path.join(save_dir, f"{idx}.png")
+        img.save(file_path)
+
+    print(f"[Saved {len(images)} images to]: {save_dir}")
