@@ -173,5 +173,10 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-ngocs_generated_images
-ngocs_generated_images_squirl
+# image folders 
+safe_generated_images_xray_chest
+safe_generated_images_ct_chest
+safe_generated_images_ct_abdominal
+generated_images
+*.csv
+*.xlxs
