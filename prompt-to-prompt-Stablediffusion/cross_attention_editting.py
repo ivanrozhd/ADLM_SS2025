@@ -462,7 +462,7 @@ def save_images_separately(prompts, images, output_dir="generated_images", image
             images = [images]
     
     # skip the first image 
-    if len(images) > 0: 
+    if len(images) > 1: 
         images = images[1:]
 
     # Save each image
