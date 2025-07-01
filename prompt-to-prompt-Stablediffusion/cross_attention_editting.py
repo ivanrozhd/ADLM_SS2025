@@ -450,7 +450,7 @@ def save_images_to_file(prompts, images, displayNumber, file_name_postfix, num_r
     print(f"[Saved]: {file_path}")
 
 
-def save_images_separately(prompts, images, output_dir="generated_images"):
+def save_images_separately(prompts, images, output_dir="generated_images", image_name=None):
     save_dir = os.path.join(output_dir, "single_output")
     os.makedirs(save_dir, exist_ok=True)
 
@@ -460,11 +460,18 @@ def save_images_separately(prompts, images, output_dir="generated_images"):
             images = [img for img in images]
         else:
             images = [images]
+    
+    # skip the first image 
+    if len(images) > 0: 
+        images = images[1:]
 
     # Save each image
     for idx, img_np in enumerate(images):
         img = Image.fromarray(img_np.astype(np.uint8))
-        file_path = os.path.join(save_dir, f"{idx}.png")
+        if image_name:
+            file_path = os.path.join(save_dir, f"{image_name}_{idx}.png")
+        else:
+            file_path = os.path.join(save_dir, f"{idx}.png")
         img.save(file_path)
 
     print(f"[Saved {len(images)} images to]: {save_dir}")
