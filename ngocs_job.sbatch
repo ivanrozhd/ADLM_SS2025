@@ -7,7 +7,7 @@
 ##SBATCH --partition=universe,asteroids
 ##SBATCH --qos=master-queuesave
 #SBATCH --time=01:00:00
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=16G
 
@@ -23,10 +23,13 @@ conda deactivate
 
 # If the following does not work, try 'source activate <env-name>'
 conda activate ngoc_adlm_env_py310
+# conda activate transunet 
 
-# Do in the future to store the environment
+# Uncomment to store the environment
 # conda env create -f environment.yml
 
 # Run the program
-python /vol/miltank/users/doanb/ADLM_SS2025/prompt-to-prompt-Stablediffusion/main.py
-# python /vol/miltank/users/doanb/ADLM_SS2025/prompt-to-prompt-Stablediffusion/example.py
+#python /vol/miltank/users/doanb/ADLM_SS2025/prompt-to-prompt-Stablediffusion/main.py
+python /vol/miltank/users/doanb/ADLM_SS2025/evaluation/main.py 
+
+#python /vol/miltank/users/doanb/ADLM_SS2025/prompt-to-prompt-Stablediffusion/main_inversion_tryout.py 

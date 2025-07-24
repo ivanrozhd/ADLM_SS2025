@@ -336,14 +336,15 @@ def show_self_attention_comp(prompts, displayNumber, attention_store: AttentionS
     save_attention_images_to_file(np.concatenate(images, axis=1), displayNumber=displayNumber, file_name_postfix="self_attention")
 
 # Runs Stable Diffusion with or without Prompt-to-Prompt control, displays output, and returns image + latent.
-def run_and_display(prompts, displayNumber, controller, ldm_stable, NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=None, run_baseline=False, generator=None):
+def run_and_display(prompts, displayNumber, controller, ldm_stable, NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=None, run_baseline=False, generator=None, save_images_side_by_side=False):
     if run_baseline:
         print("w.o. prompt-to-prompt")
         images, latent = run_and_display(prompts, displayNumber, EmptyControl(), ldm_stable, NUM_DIFFUSION_STEPS, GUIDANCE_SCALE, latent=latent, run_baseline=False, generator=generator)
         print("with prompt-to-prompt")
     images, x_t = ptp_utils.text2image_ldm_stable(ldm_stable, prompts, controller, latent=latent, num_inference_steps=NUM_DIFFUSION_STEPS, guidance_scale=GUIDANCE_SCALE, generator=generator)
     #ptp_utils.view_images(images)
-    save_images_to_file(prompts, images, displayNumber=displayNumber, file_name_postfix="run")
+    if save_images_side_by_side:
+        save_images_to_file(prompts, images, displayNumber=displayNumber, file_name_postfix="run")
     return images, x_t
 
 def save_attention_images_to_file(images, displayNumber, file_name_postfix, num_rows=1, offset_ratio=0.02, output_dir="generated_images"):
@@ -450,8 +451,8 @@ def save_images_to_file(prompts, images, displayNumber, file_name_postfix, num_r
     print(f"[Saved]: {file_path}")
 
 
-def save_images_separately(prompts, images, output_dir="generated_images", image_name=None):
-    save_dir = os.path.join(output_dir, "single_output")
+def save_images_separately(prompts, images, use_case, output_dir="generated_images", image_name=None):
+    save_dir = os.path.join(output_dir, use_case)
     os.makedirs(save_dir, exist_ok=True)
 
     # Ensure images is a list
