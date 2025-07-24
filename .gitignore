@@ -173,10 +173,14 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# image folders 
-safe_generated_images_xray_chest
-safe_generated_images_ct_chest
-safe_generated_images_ct_abdominal
+# image folders and outputs 
+some_orginal_test_images
+some_old_generated_images
 generated_images
+ROCO-dataset
+metrics_plots
 *.csv
-*.xlxs
+*.xlsx
+*.pt
+*.err
+*.out

@@ -11,8 +11,7 @@ def segment(input_image_folder: str, output_file_path: str):
         #{"name": "YOLOv11x", "type": "YOLO", "weights": "yolo11x-seg.pt"}, #bad
         #{"name": "SAM_b", "type": "SAM", "weights": "sam_b.pt"}, #sam_l better
         {"name": "SAM_l", "type": "SAM", "weights": "sam_l.pt"},
-        {"name": "SAM2.1_b", "type": "SAM", "weights": "sam2.1_b.pt"},
-        #{"name": "SAM2.1_l", "type": "SAM", "weights": "sam2.1_l.pt"}, #sam2.1_b better
+        {"name": "SAM2.1_b", "type": "SAM", "weights": "sam2.1_b.pt"}
     ]
 
     # Load image paths
@@ -50,13 +49,14 @@ def segment(input_image_folder: str, output_file_path: str):
         print(f"Runned inference with {model_config['name']} on {len(results)} images.")
 
 
-    # save all_model_results to  output file so that can load back later
+    # save all_model_results to output file
     if not output_file_path.endswith('.pt'):
         raise ValueError("Output file must end with .pt")
     if os.path.exists(output_file_path):
         os.remove(output_file_path)
+        
     os.makedirs(os.path.dirname(output_file_path), exist_ok=True)
     torch.save(all_model_results, output_file_path)
-
-    # DEBUGGING
     print(f"Saved segmentation results to: {output_file_path}")
+
+    return all_model_results
